@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Football Prediction Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-accent: #14b8a6; /* teal-500 */
+            --primary-accent-hover: #0d9488; /* teal-600 */
+            --secondary-accent: #0ea5e9; /* sky-500 */
+            
+            --bg-main: hsl(220, 30%, 98%);
+            --bg-card: rgba(255, 255, 255, 0.6);
+            --bg-interactive: hsl(220, 25%, 94%);
+            --bg-interactive-hover: hsl(220, 25%, 90%);
+
+            --text-primary: hsl(220, 25%, 15%);
+            --text-secondary: hsl(220, 15%, 45%);
+            --text-tertiary: hsl(220, 15%, 65%);
+            
+            --border-color: rgba(255, 255, 255, 0.9);
+            --border-interactive: hsl(220, 20%, 85%);
+            --shadow-color: rgba(0, 0, 0, 0.05);
+
+            --color-amber: #d97706; /* amber-600 */
+            --color-sky: #0284c7; /* sky-600 */
+            --color-teal: #0d9488; /* teal-600 */
+        }
+
+        [data-theme='dark'] {
+            --primary-accent: #2dd4bf; /* teal-400 */
+            --primary-accent-hover: #14b8a6; /* teal-500 */
+            --secondary-accent: #38bdf8; /* sky-400 */
+            
+            --bg-main: hsl(220, 25%, 10%);
+            --bg-card: rgba(30, 41, 59, 0.5);
+            --bg-interactive: hsl(220, 25%, 15%);
+            --bg-interactive-hover: hsl(220, 25%, 20%);
+            
+            --text-primary: hsl(220, 20%, 95%);
+            --text-secondary: hsl(220, 15%, 75%);
+            --text-tertiary: hsl(220, 15%, 55%);
+
+            --border-color: rgba(255, 255, 255, 0.1);
+            --border-interactive: hsl(220, 20%, 30%);
+            --shadow-color: rgba(0, 0, 0, 0.2);
+
+            --color-amber: #fcd34d; /* amber-400 */
+            --color-sky: #38bdf8; /* sky-400 */
+            --color-teal: #2dd4bf; /* teal-400 */
+        }
+
+        body {
+            background-color: var(--bg-main);
+            background-image: radial-gradient(circle at 10% 10%, var(--secondary-accent) -20%, transparent 35%),
+                              radial-gradient(circle at 90% 80%, var(--primary-accent) -20%, transparent 35%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .content-card {
+            background-color: var(--bg-card);
+            border-radius: 0.75rem; /* 12px */
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px 0 var(--shadow-color);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+        }
+
+        .primary-button {
+            background: var(--primary-accent);
+            color: white;
+            border-radius: 0.5rem; /* 8px */
+            transition: background-color 0.2s ease-in-out;
+            border: 1px solid transparent;
+            font-weight: 600;
+        }
+        .primary-button:hover {
+            background: var(--primary-accent-hover);
+        }
+
+        .hero-title {
+            background: linear-gradient(45deg, var(--primary-accent), var(--secondary-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* App Header */
+        .app-header {
+            background-color: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .header-title {
+            color: var(--text-primary);
+        }
+        
+        .theme-switcher {
+            background-color: var(--bg-interactive);
+            color: var(--text-secondary);
+            border-radius: 9999px;
+            padding: 0.5rem;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        .theme-switcher:hover {
+            background-color: var(--bg-interactive-hover);
+            color: var(--text-primary);
+        }
+
+        /* File Upload */
+        .file-dropzone {
+            border-color: var(--border-interactive);
+            transition: all 0.3s ease;
+        }
+        .file-dropzone.dragging {
+            border-color: var(--primary-accent);
+            background-color: var(--bg-card);
+        }
+
+        /* Select Input */
+        .themed-select {
+            background-color: var(--bg-interactive);
+            border: 1px solid var(--border-interactive);
+            color: var(--text-primary);
+            border-radius: 0.5rem;
+        }
+        .themed-select:focus {
+             border-color: var(--primary-accent);
+             box-shadow: 0 0 0 2px var(--primary-accent);
+             outline: none;
+        }
+
+        /* Filtered Results Table */
+        .table-container {
+            border: 1px solid var(--border-interactive);
+            background-color: var(--bg-card);
+        }
+        .table-header {
+            background-color: var(--bg-interactive);
+            color: var(--text-secondary);
+        }
+        .table-body {
+            border-color: var(--border-interactive);
+        }
+        .table-row:hover {
+            background-color: var(--bg-interactive);
+        }
+
+        /* Loader */
+        .loader-overlay {
+            background-color: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        [data-theme='dark'] .loader-overlay {
+             background-color: rgba(15, 23, 42, 0.5);
+        }
+
+        /* Recharts Tooltip */
+        .recharts-tooltip-wrapper {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 0.5rem !important;
+            box-shadow: 0 2px 4px var(--shadow-color);
+        }
+        .recharts-tooltip-label {
+            color: var(--text-primary) !important;
+            font-weight: 600 !important;
+        }
+        .recharts-tooltip-item {
+             color: var(--text-secondary) !important;
+        }
+
+        /* Custom Range Slider Styles */
+        input[type=range].custom-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range].custom-slider:focus { outline: none; }
+        input[type=range].custom-slider::-webkit-slider-runnable-track {
+            width: 100%; height: 6px; cursor: pointer;
+            background: var(--bg-interactive);
+            border-radius: 3px;
+        }
+        input[type=range].custom-slider::-moz-range-track {
+            width: 100%; height: 6px; cursor: pointer;
+            background: var(--bg-interactive);
+            border-radius: 3px;
+        }
+        input[type=range].custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 18px; width: 18px;
+            border-radius: 50%; background: var(--primary-accent);
+            cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px var(--shadow-color);
+        }
+        input[type=range].custom-slider::-moz-range-thumb {
+            height: 18px; width: 18px; border-radius: 50%;
+            background: var(--primary-accent); cursor: pointer;
+            box-shadow: 0 1px 3px var(--shadow-color);
+        }
+
+        /* Utility Classes */
+        .text-primary { color: var(--text-primary); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-tertiary { color: var(--text-tertiary); }
+        .text-accent { color: var(--primary-accent); }
+
+        .text-amber { color: var(--color-amber); }
+        .text-sky { color: var(--color-sky); }
+        .text-teal { color: var(--color-teal); }
+
+        .uploader-icon-wrapper {
+            background-color: #f0fdfa; /* teal-100 */
+            color: #0d9488; /* teal-600 */
+        }
+        [data-theme='dark'] .uploader-icon-wrapper {
+            background-color: rgba(19, 78, 74, 0.5); /* dark:bg-teal-900/50 */
+            color: #2dd4bf; /* dark:text-teal-400 */
+        }
+
+        .code-block {
+            background-color: #f1f5f9; /* slate-100 */
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            display: inline-block;
+        }
+        [data-theme='dark'] .code-block {
+            background-color: #1e293b; /* slate-800 */
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "vite": "https://aistudiocdn.com/vite@^7.1.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.4",
+    "recharts": "https://aistudiocdn.com/recharts@^3.2.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>

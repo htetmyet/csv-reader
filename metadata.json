@@ -1,0 +1,5 @@
+{
+  "name": "CSV Data Dashboard",
+  "description": "An interactive and insightful dashboard that analyzes multiple uploaded CSV files. It automatically generates summaries, key statistics, and relevant charts like pie and bar graphs for professional data visualization.",
+  "requestFramePermissions": []
+}

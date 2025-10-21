@@ -1,5 +1,5 @@
 # Build stage for the Vite React application
-FROM node:20-alpine AS build
+FROM node:20-bullseye-slim AS build
 WORKDIR /app
 
 # Install dependencies based on the package manifest

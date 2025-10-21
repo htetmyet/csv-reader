@@ -3,12 +3,21 @@ import React from 'react';
 interface FilteredResultsProps {
     sureWins: Record<string, any>[];
     draws: Record<string, any>[];
+    sureWinThreshold: number;
+    drawThreshold: number;
 }
 
 const DISPLAY_KEYS = ['Date', 'Team', 'Opponent', 'Predicted Result', 'Prob_HomeWin', 'Prob_Draw', 'Prob_AwayWin'];
 const PROBABILITY_KEYS = ['Prob_HomeWin', 'Prob_Draw', 'Prob_AwayWin'];
 
-const ResultsTable: React.FC<{ data: Record<string, any>[], category: 'win' | 'draw' }> = ({ data, category }) => {
+interface ResultsTableProps {
+    data: Record<string, any>[];
+    category: 'win' | 'draw';
+    sureWinThreshold: number;
+    drawThreshold: number;
+}
+
+const ResultsTable: React.FC<ResultsTableProps> = ({ data, category, sureWinThreshold, drawThreshold }) => {
     if (data.length === 0) {
         return <p className="text-secondary text-center py-8">No matches meet the criteria.</p>;
     }
@@ -55,7 +64,25 @@ const ResultsTable: React.FC<{ data: Record<string, any>[], category: 'win' | 'd
                                     const value = row[key];
                                     if (value !== undefined && value !== null) {
                                         if (PROBABILITY_KEYS.includes(key) && typeof value === 'number') {
-                                            cellContent = value.toFixed(3);
+                                            const formattedValue = value.toFixed(3);
+                                            const meetsThreshold =
+                                                (key === 'Prob_Draw' && value >= drawThreshold) ||
+                                                (key !== 'Prob_Draw' && value >= sureWinThreshold);
+
+                                            if (meetsThreshold) {
+                                                let highlightClass = 'probability-pill';
+                                                if (key === 'Prob_HomeWin') {
+                                                    highlightClass += ' probability-pill--home';
+                                                } else if (key === 'Prob_AwayWin') {
+                                                    highlightClass += ' probability-pill--away';
+                                                } else {
+                                                    highlightClass += ' probability-pill--draw';
+                                                }
+                                                cellContent = <span className={highlightClass}>{formattedValue}</span>;
+                                                cellClass = 'text-primary';
+                                            } else {
+                                                cellContent = formattedValue;
+                                            }
                                         } else {
                                             cellContent = String(value);
                                         }
@@ -76,7 +103,7 @@ const ResultsTable: React.FC<{ data: Record<string, any>[], category: 'win' | 'd
     );
 };
 
-const FilteredResults: React.FC<FilteredResultsProps> = ({ sureWins, draws }) => {
+const FilteredResults: React.FC<FilteredResultsProps> = ({ sureWins, draws, sureWinThreshold, drawThreshold }) => {
     return (
         <div className="flex flex-col gap-8">
             {/* Sure Wins Card */}
@@ -85,7 +112,12 @@ const FilteredResults: React.FC<FilteredResultsProps> = ({ sureWins, draws }) =>
                     High-Confidence Wins <span className="text-sm font-normal text-secondary">({sureWins.length} matches)</span>
                 </h3>
                 <div className="flex-grow">
-                    <ResultsTable data={sureWins} category="win" />
+                    <ResultsTable
+                        data={sureWins}
+                        category="win"
+                        sureWinThreshold={sureWinThreshold}
+                        drawThreshold={drawThreshold}
+                    />
                 </div>
             </div>
 
@@ -95,7 +127,12 @@ const FilteredResults: React.FC<FilteredResultsProps> = ({ sureWins, draws }) =>
                     Potential Draws <span className="text-sm font-normal text-secondary">({draws.length} matches)</span>
                 </h3>
                  <div className="flex-grow">
-                    <ResultsTable data={draws} category="draw" />
+                    <ResultsTable
+                        data={draws}
+                        category="draw"
+                        sureWinThreshold={sureWinThreshold}
+                        drawThreshold={drawThreshold}
+                    />
                 </div>
             </div>
         </div>

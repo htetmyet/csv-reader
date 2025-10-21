@@ -106,6 +106,8 @@ const Dashboard: React.FC<DashboardProps> = ({ datasets, analysisResults }) => {
                     <FilteredResults
                         sureWins={sureWins}
                         draws={draws}
+                        sureWinThreshold={sureWinThreshold}
+                        drawThreshold={drawThreshold}
                     />
                 </div>
             ) : (

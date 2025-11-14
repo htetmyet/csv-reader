@@ -79,6 +79,7 @@ const TeamMatchupPage: React.FC = () => {
     const [probFilter, setProbFilter] = useState(0);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isParsing, setIsParsing] = useState(false);
+    const [selectedPrediction, setSelectedPrediction] = useState<string>('All');
 
     const probStats = useMemo(() => {
         if (!rows.length) {
@@ -106,12 +107,29 @@ const TeamMatchupPage: React.FC = () => {
             setProbFilter(probStats.min);
         } else {
             setProbFilter(0);
+            setSelectedPrediction('All');
         }
     }, [rows, probStats.min]);
 
+    const predictionGroups = useMemo(() => {
+        const unique = new Set<string>();
+        rows.forEach(row => unique.add(row.Predicted || 'Unknown'));
+        return Array.from(unique);
+    }, [rows]);
+
+    useEffect(() => {
+        if (selectedPrediction !== 'All' && !predictionGroups.includes(selectedPrediction)) {
+            setSelectedPrediction('All');
+        }
+    }, [predictionGroups, selectedPrediction]);
+
     const filteredRows = useMemo(() => {
-        return rows.filter(row => row.Prob_Max >= probFilter);
-    }, [rows, probFilter]);
+        return rows.filter(row => {
+            const matchesProb = row.Prob_Max >= probFilter;
+            const matchesPrediction = selectedPrediction === 'All' || row.Predicted === selectedPrediction;
+            return matchesProb && matchesPrediction;
+        });
+    }, [rows, probFilter, selectedPrediction]);
 
     const predictedDistribution = useMemo(() => {
         const counts: Record<string, number> = {};
@@ -274,26 +292,48 @@ const TeamMatchupPage: React.FC = () => {
                     </div>
 
                     <div className="content-card p-6">
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                             <div>
-                                <h3 className="text-lg font-semibold">Prob_Max Filter</h3>
+                                <h3 className="text-lg font-semibold">Focused Filters</h3>
                                 <p className="text-secondary text-sm">
-                                    Keep matches with Prob_Max greater than or equal to <span className="font-semibold text-primary">{probFilter.toFixed(2)}</span>
+                                    Narrow the dataset by probability and prediction group to surface the opportunities you care about.
                                 </p>
                             </div>
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                <input
-                                    type="range"
-                                    min={probStats.min}
-                                    max={sliderMax}
-                                    step="0.01"
-                                    value={probFilter}
-                                    onChange={(event) => setProbFilter(Number(event.target.value))}
-                                    className="flex-1 md:min-w-[240px]"
-                                />
-                                <div className="text-right">
-                                    <p className="text-xs text-secondary">Range</p>
-                                    <p className="font-semibold">{probStats.min.toFixed(2)} - {probStats.max.toFixed(2)}</p>
+                            <div className="flex flex-col gap-4 w-full lg:w-auto">
+                                <div className="flex flex-col gap-3 bg-slate-100/70 dark:bg-slate-900/50 rounded-xl p-4 shadow-inner">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-semibold uppercase text-secondary tracking-widest">Prob_Max</span>
+                                        <span className="text-base font-semibold text-primary">{probFilter.toFixed(2)}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={probStats.min}
+                                        max={sliderMax}
+                                        step="0.01"
+                                        value={probFilter}
+                                        onChange={(event) => setProbFilter(Number(event.target.value))}
+                                        className="w-full accent-teal-500"
+                                    />
+                                    <div className="flex justify-between text-xs text-secondary">
+                                        <span>{probStats.min.toFixed(2)}</span>
+                                        <span>{probStats.max.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label htmlFor="prediction-filter" className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                        Predicted Group
+                                    </label>
+                                    <select
+                                        id="prediction-filter"
+                                        value={selectedPrediction}
+                                        onChange={(event) => setSelectedPrediction(event.target.value)}
+                                        className="themed-select px-4 py-2 text-sm"
+                                    >
+                                        <option value="All">All Predictions</option>
+                                        {predictionGroups.map(group => (
+                                            <option key={group} value={group}>{group}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -350,7 +390,7 @@ const TeamMatchupPage: React.FC = () => {
                             <div>
                                 <h3 className="text-lg font-semibold">Filtered Results</h3>
                                 <p className="text-secondary text-sm">
-                                    Displaying {filteredRows.length} of {rows.length} records (Prob_Max ≥ {probFilter.toFixed(2)}).
+                                    Displaying {filteredRows.length} of {rows.length} records (Prob_Max ≥ {probFilter.toFixed(2)}, {selectedPrediction === 'All' ? 'All predictions' : `${selectedPrediction} group`}).
                                 </p>
                             </div>
                         </div>

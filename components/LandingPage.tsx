@@ -2,6 +2,7 @@ import React from 'react';
 
 interface LandingPageProps {
     onStart: () => void;
+    onOpenTeamPage: () => void;
 }
 
 // FIX: Changed JSX.Element to React.ReactElement to resolve "Cannot find namespace 'JSX'" error.
@@ -15,7 +16,7 @@ const FeatureCard: React.FC<{ icon: React.ReactElement, title: string, children:
     </div>
 );
 
-const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onStart, onOpenTeamPage }) => {
     return (
         <div className="min-h-screen">
             <main>
@@ -30,9 +31,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                         <p className="text-lg md:text-xl text-white/90 max-w-3xl mx-auto mb-8">
                             Turn your football prediction data into actionable insights. Analyze ROI, evaluate odds, and refine your strategy with our powerful dashboard.
                         </p>
-                        <button onClick={onStart} className="px-8 py-3 text-lg font-bold text-teal-600 bg-white rounded-full hover:bg-slate-100 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                            Analyze Predictions Now
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                            <button onClick={onStart} className="px-8 py-3 text-lg font-bold text-teal-600 bg-white rounded-full hover:bg-slate-100 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                                Analyze Predictions Now
+                            </button>
+                            <button
+                                onClick={onOpenTeamPage}
+                                className="px-8 py-3 text-lg font-bold text-white/90 border border-white/70 rounded-full hover:bg-white/10 transition-all backdrop-blur-sm"
+                            >
+                                Compare Prediction CSVs
+                            </button>
+                        </div>
                     </div>
                 </div>
 

@@ -7,9 +7,10 @@ import Dashboard from './components/Dashboard';
 import Header from './components/Header';
 import Loader from './components/Loader';
 import LandingPage from './components/LandingPage';
+import TeamMatchupPage from './components/TeamMatchupPage';
 
 const App: React.FC = () => {
-    const [view, setView] = useState<'landing' | 'dashboard'>('landing');
+    const [view, setView] = useState<'landing' | 'dashboard' | 'matchups'>('landing');
     const [datasets, setDatasets] = useState<ParsedCSV[]>([]);
     const [analysisResults, setAnalysisResults] = useState<Record<string, AnalysisResult>>({});
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -61,37 +62,57 @@ const App: React.FC = () => {
     
     const handleStartAnalysis = () => {
         setView('dashboard');
-    }
+    };
+
+    const handleOpenTeamVisualizer = () => {
+        setView('matchups');
+    };
+
+    const handleNavigate = (targetView: 'dashboard' | 'matchups') => {
+        setView(targetView);
+    };
 
     if (view === 'landing') {
-        return <LandingPage onStart={handleStartAnalysis} />;
+        return <LandingPage onStart={handleStartAnalysis} onOpenTeamPage={handleOpenTeamVisualizer} />;
     }
 
     return (
         <div className="min-h-screen flex flex-col">
-            <Header onReset={handleReset} onGoToLanding={handleGoToLanding} hasData={datasets.length > 0} />
+            <Header
+                onReset={handleReset}
+                onGoToLanding={handleGoToLanding}
+                hasData={view === 'dashboard' && datasets.length > 0}
+                onNavigate={handleNavigate}
+                currentView={view === 'dashboard' ? 'dashboard' : 'matchups'}
+            />
             <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
-                {isLoading && <Loader message="Analyzing your prediction data..." />}
-                
-                {!isLoading && error && (
-                    <div className="text-center p-8 content-card max-w-2xl mx-auto">
-                        <h2 className="text-2xl font-bold text-red-500 mb-4">Processing Error</h2>
-                        <p className="text-secondary text-lg">{error}</p>
-                        <button 
-                            onClick={handleReset}
-                            className="mt-6 px-6 py-2 text-sm font-semibold primary-button"
-                        >
-                            Try Again
-                        </button>
-                    </div>
-                )}
+                {view === 'dashboard' ? (
+                    <>
+                        {isLoading && <Loader message="Analyzing your prediction data..." />}
+                        
+                        {!isLoading && error && (
+                            <div className="text-center p-8 content-card max-w-2xl mx-auto">
+                                <h2 className="text-2xl font-bold text-red-500 mb-4">Processing Error</h2>
+                                <p className="text-secondary text-lg">{error}</p>
+                                <button 
+                                    onClick={handleReset}
+                                    className="mt-6 px-6 py-2 text-sm font-semibold primary-button"
+                                >
+                                    Try Again
+                                </button>
+                            </div>
+                        )}
 
-                {!isLoading && !error && datasets.length === 0 && (
-                    <FileUpload onFilesSelected={handleFiles} />
-                )}
+                        {!isLoading && !error && datasets.length === 0 && (
+                            <FileUpload onFilesSelected={handleFiles} />
+                        )}
 
-                {!isLoading && !error && datasets.length > 0 && (
-                    <Dashboard datasets={datasets} analysisResults={analysisResults} />
+                        {!isLoading && !error && datasets.length > 0 && (
+                            <Dashboard datasets={datasets} analysisResults={analysisResults} />
+                        )}
+                    </>
+                ) : (
+                    <TeamMatchupPage />
                 )}
             </main>
         </div>

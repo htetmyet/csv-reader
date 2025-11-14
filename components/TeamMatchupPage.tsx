@@ -355,26 +355,51 @@ const TeamMatchupPage: React.FC = () => {
                             </div>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                                <thead className="bg-slate-50 dark:bg-slate-800">
+                            <table className="min-w-full divide-y divide-slate-200/60 dark:divide-slate-700/60 text-sm">
+                                <thead className="bg-gradient-to-r from-teal-500/10 via-sky-500/10 to-indigo-500/10 text-xs font-semibold uppercase tracking-wider">
                                     <tr>
-                                        <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Team</th>
-                                        <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Opponent</th>
-                                        <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider">Predicted</th>
-                                        <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">Prob_Max</th>
-                                        <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">Lambda_Home</th>
-                                        <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wider">Lambda_Away</th>
+                                        <th className="px-4 py-3 text-left">Home</th>
+                                        <th className="px-4 py-3 text-center">Predicted</th>
+                                        <th className="px-4 py-3 text-left">Away</th>
+                                        <th className="px-4 py-3 text-right">Prob_Max</th>
+                                        <th className="px-4 py-3 text-right">Lambda_Home</th>
+                                        <th className="px-4 py-3 text-right">Lambda_Away</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                                <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
                                     {filteredRows.map((row, index) => (
-                                        <tr key={`${row.Team}-${row.Opponent}-${index}`} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/70 transition-colors">
-                                            <td className="px-4 py-2 font-semibold">{row.Team}</td>
-                                            <td className="px-4 py-2">{row.Opponent}</td>
-                                            <td className="px-4 py-2">{row.Predicted}</td>
-                                            <td className="px-4 py-2 text-right">{row.Prob_Max.toFixed(2)}</td>
-                                            <td className="px-4 py-2 text-right">{row.Lambda_Home.toFixed(2)}</td>
-                                            <td className="px-4 py-2 text-right">{row.Lambda_Away.toFixed(2)}</td>
+                                        <tr
+                                            key={`${row.Team}-${row.Opponent}-${index}`}
+                                            className="bg-white/70 dark:bg-slate-900/20 hover:bg-teal-50/80 dark:hover:bg-slate-800/70 transition-colors"
+                                        >
+                                            <td className="px-4 py-4 font-semibold text-primary">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="inline-flex h-2 w-2 rounded-full bg-teal-400" />
+                                                    {row.Team}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4 text-center">
+                                                <span className="inline-flex items-center justify-center px-4 py-1.5 rounded-full text-sm font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-100 shadow-inner">
+                                                    {row.Predicted}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-4 font-semibold text-primary">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="inline-flex h-2 w-2 rounded-full bg-sky-400" />
+                                                    {row.Opponent}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-4 text-right">
+                                                <span className="inline-flex items-center justify-end font-semibold text-emerald-600 dark:text-emerald-400">
+                                                    {row.Prob_Max.toFixed(2)}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-4 text-right text-slate-600 dark:text-slate-300">
+                                                {row.Lambda_Home.toFixed(2)}
+                                            </td>
+                                            <td className="px-4 py-4 text-right text-slate-600 dark:text-slate-300">
+                                                {row.Lambda_Away.toFixed(2)}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>

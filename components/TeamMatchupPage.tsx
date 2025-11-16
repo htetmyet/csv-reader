@@ -72,6 +72,39 @@ const toNumber = (value: unknown) => {
     return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const scoringTips = [
+    {
+        score: '0-1',
+        title: 'Under 2.5 focus',
+        details: 'For higher scores, play it safer with Under 2.5 and sprinkle correct score options.',
+        gradient: 'from-sky-500 via-cyan-500 to-emerald-400'
+    },
+    {
+        score: '2-0',
+        title: 'Home win control',
+        details: 'Higher scoring projection favors a confident Home Win outcome.',
+        gradient: 'from-emerald-500 via-teal-500 to-lime-400'
+    },
+    {
+        score: '3-1',
+        title: 'Over 3.5 spark',
+        details: 'Open matches trending aggressive lean heavily toward the Over 3.5 market.',
+        gradient: 'from-orange-500 via-amber-500 to-yellow-400'
+    },
+    {
+        score: '1-1',
+        title: 'λHome 1.5 signal',
+        details: 'When λHome hovers near 1.5, chase the Correct Score as it often balances out.',
+        gradient: 'from-fuchsia-500 via-purple-500 to-indigo-500'
+    },
+    {
+        score: '1-0',
+        title: 'Tight home edge',
+        details: 'Back the home side to win by one or grind out a draw when their edge is slim.',
+        gradient: 'from-rose-500 via-pink-500 to-red-500'
+    }
+];
+
 const TeamMatchupPage: React.FC = () => {
     const [rows, setRows] = useState<MatchupRow[]>([]);
     const [fileSummary, setFileSummary] = useState<string>('');
@@ -291,51 +324,81 @@ const TeamMatchupPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="content-card p-6">
-                        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="content-card p-4 md:p-5 space-y-5">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h3 className="text-lg font-semibold">Focused Filters</h3>
-                                <p className="text-secondary text-sm">
-                                    Narrow the dataset by probability and prediction group to surface the opportunities you care about.
+                                <h3 className="text-base font-semibold tracking-tight">Focused Filters</h3>
+                                <p className="text-xs text-secondary">
+                                    Dial in a compact slice of the data using just the essentials.
                                 </p>
                             </div>
-                            <div className="flex flex-col gap-4 w-full lg:w-auto">
-                                <div className="flex flex-col gap-3 bg-slate-100/70 dark:bg-slate-900/50 rounded-xl p-4 shadow-inner">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-semibold uppercase text-secondary tracking-widest">Prob_Max</span>
-                                        <span className="text-base font-semibold text-primary">{probFilter.toFixed(2)}</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min={probStats.min}
-                                        max={sliderMax}
-                                        step="0.01"
-                                        value={probFilter}
-                                        onChange={(event) => setProbFilter(Number(event.target.value))}
-                                        className="w-full accent-teal-500"
-                                    />
-                                    <div className="flex justify-between text-xs text-secondary">
-                                        <span>{probStats.min.toFixed(2)}</span>
-                                        <span>{probStats.max.toFixed(2)}</span>
-                                    </div>
+                            <span className="inline-flex items-center justify-center rounded-full bg-slate-100/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-secondary dark:bg-slate-900/50">
+                                Active {filteredRows.length.toLocaleString()} / {rows.length.toLocaleString()}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-inner dark:border-slate-800/70 dark:bg-slate-900/20">
+                                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-widest text-secondary">
+                                    <span>Prob_Max</span>
+                                    <span className="text-sm text-primary">{probFilter.toFixed(2)}</span>
                                 </div>
-                                <div className="flex flex-col gap-2">
-                                    <label htmlFor="prediction-filter" className="text-xs font-semibold uppercase tracking-widest text-secondary">
-                                        Predicted Group
-                                    </label>
-                                    <select
-                                        id="prediction-filter"
-                                        value={selectedPrediction}
-                                        onChange={(event) => setSelectedPrediction(event.target.value)}
-                                        className="themed-select px-4 py-2 text-sm"
-                                    >
-                                        <option value="All">All Predictions</option>
-                                        {predictionGroups.map(group => (
-                                            <option key={group} value={group}>{group}</option>
-                                        ))}
-                                    </select>
+                                <input
+                                    type="range"
+                                    min={probStats.min}
+                                    max={sliderMax}
+                                    step="0.01"
+                                    value={probFilter}
+                                    onChange={(event) => setProbFilter(Number(event.target.value))}
+                                    className="custom-slider mt-3"
+                                />
+                                <div className="mt-2 flex justify-between text-[11px] font-medium text-secondary">
+                                    <span>Min {probStats.min.toFixed(2)}</span>
+                                    <span>Max {probStats.max.toFixed(2)}</span>
                                 </div>
                             </div>
+                            <div className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800/70 dark:bg-slate-900/20">
+                                <label htmlFor="prediction-filter" className="text-[11px] font-semibold uppercase tracking-widest text-secondary">
+                                    Predicted Group
+                                </label>
+                                <select
+                                    id="prediction-filter"
+                                    value={selectedPrediction}
+                                    onChange={(event) => setSelectedPrediction(event.target.value)}
+                                    className="themed-select mt-2 w-full px-4 py-2 text-sm"
+                                >
+                                    <option value="All">All Predictions</option>
+                                    {predictionGroups.map(group => (
+                                        <option key={group} value={group}>{group}</option>
+                                    ))}
+                                </select>
+                                <p className="mt-3 text-xs text-secondary">
+                                    Keep it lean by isolating one predicted outcome or scanning across the entire sheet.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="content-card p-4 md:p-5 space-y-4">
+                        <div>
+                            <h3 className="text-base font-semibold">Focused Tips</h3>
+                            <p className="text-sm text-secondary">
+                                Quick visual cheatsheet for the most common scoreline clusters.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                            {scoringTips.map(tip => (
+                                <div
+                                    key={tip.score}
+                                    className={`rounded-2xl border border-white/40 bg-gradient-to-br ${tip.gradient} p-4 text-white shadow-lg`}
+                                >
+                                    <div className="flex items-baseline justify-between">
+                                        <span className="text-xs uppercase tracking-[0.35em] text-white/80">Group</span>
+                                        <span className="text-2xl font-black">{tip.score}</span>
+                                    </div>
+                                    <p className="mt-2 text-sm font-semibold">{tip.title}</p>
+                                    <p className="mt-1 text-xs text-white/90 leading-relaxed">{tip.details}</p>
+                                </div>
+                            ))}
                         </div>
                     </div>
 

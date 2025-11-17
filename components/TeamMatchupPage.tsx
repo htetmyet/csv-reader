@@ -74,6 +74,12 @@ const toNumber = (value: unknown) => {
 
 const scoringTips = [
     {
+        score: '0-0',
+        title: 'Zero digit lock',
+        details: 'High Prob_Max score when both sides trend to the zero-digit grid; lean into stalemate hedges.',
+        gradient: 'from-blue-600 via-indigo-500 to-slate-500'
+    },
+    {
         score: '0-1',
         title: 'Under 2.5 focus',
         details: 'For higher scores, play it safer with Under 2.5 and sprinkle correct score options.',
@@ -94,7 +100,7 @@ const scoringTips = [
     {
         score: '1-1',
         title: 'λHome 1.5 signal',
-        details: 'When λHome hovers near 1.5, chase the Correct Score as it often balances out.',
+        details: 'When λHome hovers near 1.5, lean into Both Teams To Score plus the 1-1 correct score hedge.',
         gradient: 'from-fuchsia-500 via-purple-500 to-indigo-500'
     },
     {

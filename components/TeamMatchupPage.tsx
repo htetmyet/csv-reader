@@ -25,6 +25,8 @@ interface MatchupRow {
     Prob_Max: number;
     Lambda_Home: number;
     Lambda_Away: number;
+    Date: string;
+    Div: string;
 }
 
 type ColumnKey = keyof MatchupRow;
@@ -35,7 +37,9 @@ const REQUIRED_COLUMNS: ColumnKey[] = [
     'Predicted',
     'Prob_Max',
     'Lambda_Home',
-    'Lambda_Away'
+    'Lambda_Away',
+    'Date',
+    'Div'
 ];
 
 const COLUMN_ALIASES: Partial<Record<ColumnKey, string[]>> = {
@@ -44,7 +48,38 @@ const COLUMN_ALIASES: Partial<Record<ColumnKey, string[]>> = {
     Lambda_Away: ['Lambda Away', 'lambda-away']
 };
 
+const DIVISION_LABELS: Record<string, string> = {
+    E0: 'Eng Premier League',
+    E1: 'Eng Championship',
+    E2: 'Eng League 1',
+    E3: 'Eng League 2',
+    EC: 'Eng Conference',
+    SC0: 'Sct Premier League',
+    SC1: 'Sct Division 1',
+    SC2: 'Sct Division 2',
+    SC3: 'Sct Division 3',
+    D1: 'Bundesliga',
+    D2: 'Bundesliga 2',
+    I1: 'Serie A',
+    I2: 'Serie B',
+    SP1: 'La Liga',
+    SP2: 'La Liga Segunda',
+    F1: 'Le Championnat',
+    F2: 'Fr Division 2',
+    N1: 'Eredivisie',
+    B1: 'Bel Jupiler League',
+    P1: 'Por Liga I',
+    T1: 'Tur Futbol Ligi 1',
+    G1: 'Greek Ethniki Katigoria'
+};
+
 const normalizeHeader = (value: string) => value.replace(/[\s-]+/g, '_').toLowerCase();
+
+const formatDivision = (value: unknown) => {
+    const code = typeof value === 'string' ? value.trim().toUpperCase() : String(value || '').toUpperCase();
+    if (!code) return '';
+    return DIVISION_LABELS[code] ?? code;
+};
 
 const getColumnMap = (headers: string[]): Record<ColumnKey, string> => {
     const normalizedHeaders = headers.map(header => ({
@@ -111,6 +146,116 @@ const scoringTips = [
     }
 ];
 
+interface BetCriteriaSetting {
+    id: string;
+    title: string;
+    market: string;
+    groups: string[];
+    probMin?: number;
+    lambdaHomeTarget?: number;
+    lambdaTolerance?: number;
+}
+
+interface BetSlipGroup {
+    setting: BetCriteriaSetting;
+    selections: MatchupRow[];
+    total: number;
+}
+
+const MAX_SELECTIONS_PER_CRITERIA = 5;
+
+const DEFAULT_ACCUMULATOR_SETTINGS: BetCriteriaSetting[] = [
+    {
+        id: 'acc-under-25',
+        title: 'Tight Totals',
+        market: 'Under 2.5',
+        groups: ['0-0', '0-1', '1-0'],
+        probMin: 0.13
+    },
+    {
+        id: 'acc-over35-btts',
+        title: 'Aggressive Tilt',
+        market: 'Over 3.5 / BTTS',
+        groups: ['3-1']
+    },
+    {
+        id: 'acc-btts',
+        title: 'Mutual Strike',
+        market: 'Both Teams To Score',
+        groups: ['1-1'],
+        lambdaHomeTarget: 1.5,
+        lambdaTolerance: 0.05
+    },
+    {
+        id: 'acc-home-edge',
+        title: 'Home Edge',
+        market: 'W1',
+        groups: ['2-0'],
+        probMin: 0.13
+    }
+];
+
+const DEFAULT_SINGLE_SETTINGS: BetCriteriaSetting[] = [
+    {
+        id: 'single-correct-score',
+        title: 'Exact Signal',
+        market: 'Correct Score 1-1',
+        groups: ['1-1'],
+        lambdaHomeTarget: 1.5,
+        lambdaTolerance: 0.05
+    },
+    {
+        id: 'single-slim-win',
+        title: 'Slim Margin',
+        market: 'Win by Exactly 1 Goal / Draw',
+        groups: ['1-0'],
+        probMin: 0.13
+    },
+    {
+        id: 'single-zero-digit',
+        title: 'Zero Digit Grid',
+        market: 'Zero digit in scoreline',
+        groups: ['0-0'],
+        probMin: 0.11
+    }
+];
+
+const RESULTS_PER_PAGE = 35;
+
+const rowMatchesSetting = (row: MatchupRow, setting: BetCriteriaSetting) => {
+    if (setting.groups.length && !setting.groups.includes(row.Predicted)) {
+        return false;
+    }
+
+    if (typeof setting.probMin === 'number' && row.Prob_Max < setting.probMin) {
+        return false;
+    }
+
+    if (typeof setting.lambdaHomeTarget === 'number') {
+        const tolerance = typeof setting.lambdaTolerance === 'number' ? setting.lambdaTolerance : 0.05;
+        if (Math.abs(row.Lambda_Home - setting.lambdaHomeTarget) > tolerance) {
+            return false;
+        }
+    }
+
+    return true;
+};
+
+const describeSettingCriteria = (setting: BetCriteriaSetting) => {
+    const parts: string[] = [];
+    if (typeof setting.probMin === 'number') {
+        parts.push(`Prob_Max ≥ ${setting.probMin.toFixed(2)}`);
+    }
+    if (typeof setting.lambdaHomeTarget === 'number') {
+        const tolerance = typeof setting.lambdaTolerance === 'number' ? setting.lambdaTolerance : 0.05;
+        parts.push(`λHome ≈ ${setting.lambdaHomeTarget.toFixed(2)} ± ${tolerance.toFixed(2)}`);
+    }
+    if (setting.groups.length) {
+        parts.push(`Groups: ${setting.groups.join(', ')}`);
+    }
+    return parts.join(' • ');
+};
+
 const TeamMatchupPage: React.FC = () => {
     const [rows, setRows] = useState<MatchupRow[]>([]);
     const [fileSummary, setFileSummary] = useState<string>('');
@@ -119,6 +264,33 @@ const TeamMatchupPage: React.FC = () => {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isParsing, setIsParsing] = useState(false);
     const [selectedPrediction, setSelectedPrediction] = useState<string>('All');
+    const [accumulatorSettings, setAccumulatorSettings] = useState<BetCriteriaSetting[]>(
+        () => DEFAULT_ACCUMULATOR_SETTINGS.map(setting => ({ ...setting }))
+    );
+    const [singleSettings, setSingleSettings] = useState<BetCriteriaSetting[]>(
+        () => DEFAULT_SINGLE_SETTINGS.map(setting => ({ ...setting }))
+    );
+    const [resultsPage, setResultsPage] = useState(1);
+
+    const parseGroupsInput = (value: string) => value.split(',').map(entry => entry.trim()).filter(Boolean);
+    const parseNumberInput = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return undefined;
+        const parsed = Number(trimmed);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    };
+
+    const updateAccumulatorSetting = (id: string, partial: Partial<BetCriteriaSetting>) => {
+        setAccumulatorSettings(prev => prev.map(setting => (
+            setting.id === id ? { ...setting, ...partial } : setting
+        )));
+    };
+
+    const updateSingleSetting = (id: string, partial: Partial<BetCriteriaSetting>) => {
+        setSingleSettings(prev => prev.map(setting => (
+            setting.id === id ? { ...setting, ...partial } : setting
+        )));
+    };
 
     const probStats = useMemo(() => {
         if (!rows.length) {
@@ -170,6 +342,22 @@ const TeamMatchupPage: React.FC = () => {
         });
     }, [rows, probFilter, selectedPrediction]);
 
+    const totalPages = Math.max(1, Math.ceil(filteredRows.length / RESULTS_PER_PAGE));
+    useEffect(() => {
+        setResultsPage(prev => (prev > totalPages ? totalPages : prev));
+    }, [totalPages]);
+
+    const pageStartIndex = (resultsPage - 1) * RESULTS_PER_PAGE;
+    const pageEndIndex = Math.min(filteredRows.length, pageStartIndex + RESULTS_PER_PAGE);
+    const paginatedRows = useMemo(() => (
+        filteredRows.slice(pageStartIndex, pageEndIndex)
+    ), [filteredRows, pageStartIndex, pageEndIndex]);
+    const showingFrom = filteredRows.length ? pageStartIndex + 1 : 0;
+    const showingTo = filteredRows.length ? pageEndIndex : 0;
+
+    const goToNextPage = () => setResultsPage(prev => Math.min(totalPages, prev + 1));
+    const goToPreviousPage = () => setResultsPage(prev => Math.max(1, prev - 1));
+
     const predictedDistribution = useMemo(() => {
         const counts: Record<string, number> = {};
         filteredRows.forEach(row => {
@@ -197,6 +385,34 @@ const TeamMatchupPage: React.FC = () => {
             away: values.count ? values.away / values.count : 0
         }));
     }, [filteredRows]);
+
+    const accumulatorSlip = useMemo<BetSlipGroup[]>(() => (
+        accumulatorSettings
+            .map(setting => {
+                const selections = filteredRows.filter(row => rowMatchesSetting(row, setting));
+                if (!selections.length) return null;
+                return {
+                    setting,
+                    selections: selections.slice(0, MAX_SELECTIONS_PER_CRITERIA),
+                    total: selections.length
+                };
+            })
+            .filter((group): group is BetSlipGroup => Boolean(group))
+    ), [accumulatorSettings, filteredRows]);
+
+    const singleSlip = useMemo<BetSlipGroup[]>(() => (
+        singleSettings
+            .map(setting => {
+                const selections = filteredRows.filter(row => rowMatchesSetting(row, setting));
+                if (!selections.length) return null;
+                return {
+                    setting,
+                    selections: selections.slice(0, MAX_SELECTIONS_PER_CRITERIA),
+                    total: selections.length
+                };
+            })
+            .filter((group): group is BetSlipGroup => Boolean(group))
+    ), [filteredRows, singleSettings]);
 
     const highlightMatch = useMemo(() => {
         if (!filteredRows.length) return null;
@@ -228,7 +444,9 @@ const TeamMatchupPage: React.FC = () => {
                 Predicted: String(row[columnMap.Predicted] ?? 'Unknown'),
                 Prob_Max: toNumber(row[columnMap.Prob_Max]),
                 Lambda_Home: toNumber(row[columnMap.Lambda_Home]),
-                Lambda_Away: toNumber(row[columnMap.Lambda_Away])
+                Lambda_Away: toNumber(row[columnMap.Lambda_Away]),
+                Date: String(row[columnMap.Date] ?? ''),
+                Div: formatDivision(row[columnMap.Div])
             }));
 
             setRows(normalizedRows);
@@ -262,7 +480,7 @@ const TeamMatchupPage: React.FC = () => {
                     <div>
                         <h2 className="text-2xl font-bold">Team Comparison Visualizer</h2>
                         <p className="text-secondary">
-                            Upload a CSV with Team, Opponent, Predicted, Prob_Max, Lambda_Home, and Lambda_Away columns to unlock tailored insights.
+                            Upload a CSV with Team, Opponent, Predicted, Prob_Max, Lambda_Home, Lambda_Away, Date, and Div columns to unlock tailored insights.
                         </p>
                     </div>
                     {fileSummary && (
@@ -408,6 +626,241 @@ const TeamMatchupPage: React.FC = () => {
                         </div>
                     </div>
 
+                    <div className="content-card p-6 space-y-6">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h3 className="text-base font-semibold">Bet Slip Settings</h3>
+                                <p className="text-sm text-secondary">
+                                    Tune the thresholds driving the automatic Accumulator and Single slips.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-semibold text-secondary uppercase tracking-widest">Accumulator Criteria</h4>
+                                {accumulatorSettings.map(setting => (
+                                    <div key={setting.id} className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-inner dark:border-slate-800/70 dark:bg-slate-900/20 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs uppercase tracking-widest text-secondary">{setting.title}</p>
+                                                <p className="text-sm font-semibold">{setting.market}</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            {typeof setting.probMin === 'number' && (
+                                                <label className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                                    Min Prob_Max
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="themed-input mt-1 w-full"
+                                                        value={setting.probMin}
+                                                        onChange={(event) => updateAccumulatorSetting(setting.id, { probMin: parseNumberInput(event.target.value) ?? 0 })}
+                                                    />
+                                                </label>
+                                            )}
+                                            {typeof setting.lambdaHomeTarget === 'number' && (
+                                                <>
+                                                    <label className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                                        λHome Target
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="themed-input mt-1 w-full"
+                                                            value={setting.lambdaHomeTarget}
+                                                            onChange={(event) => updateAccumulatorSetting(setting.id, { lambdaHomeTarget: parseNumberInput(event.target.value) ?? 0 })}
+                                                        />
+                                                    </label>
+                                                    <label className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                                        λHome Range
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="themed-input mt-1 w-full"
+                                                            value={setting.lambdaTolerance ?? 0}
+                                                            onChange={(event) => updateAccumulatorSetting(setting.id, { lambdaTolerance: parseNumberInput(event.target.value) ?? 0 })}
+                                                        />
+                                                    </label>
+                                                </>
+                                            )}
+                                        </div>
+                                        <label className="text-xs font-semibold uppercase tracking-widest text-secondary block">
+                                            Groups
+                                            <input
+                                                type="text"
+                                                className="themed-input mt-1 w-full"
+                                                value={setting.groups.join(', ')}
+                                                onChange={(event) => updateAccumulatorSetting(setting.id, { groups: parseGroupsInput(event.target.value) })}
+                                            />
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-semibold text-secondary uppercase tracking-widest">Singles Criteria</h4>
+                                {singleSettings.map(setting => (
+                                    <div key={setting.id} className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-inner dark:border-slate-800/70 dark:bg-slate-900/20 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs uppercase tracking-widest text-secondary">{setting.title}</p>
+                                                <p className="text-sm font-semibold">{setting.market}</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            {typeof setting.probMin === 'number' && (
+                                                <label className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                                    Min Prob_Max
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="themed-input mt-1 w-full"
+                                                        value={setting.probMin}
+                                                        onChange={(event) => updateSingleSetting(setting.id, { probMin: parseNumberInput(event.target.value) ?? 0 })}
+                                                    />
+                                                </label>
+                                            )}
+                                            {typeof setting.lambdaHomeTarget === 'number' && (
+                                                <>
+                                                    <label className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                                        λHome Target
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="themed-input mt-1 w-full"
+                                                            value={setting.lambdaHomeTarget}
+                                                            onChange={(event) => updateSingleSetting(setting.id, { lambdaHomeTarget: parseNumberInput(event.target.value) ?? 0 })}
+                                                        />
+                                                    </label>
+                                                    <label className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                                        λHome Range
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="themed-input mt-1 w-full"
+                                                            value={setting.lambdaTolerance ?? 0}
+                                                            onChange={(event) => updateSingleSetting(setting.id, { lambdaTolerance: parseNumberInput(event.target.value) ?? 0 })}
+                                                        />
+                                                    </label>
+                                                </>
+                                            )}
+                                        </div>
+                                        <label className="text-xs font-semibold uppercase tracking-widest text-secondary block">
+                                            Groups
+                                            <input
+                                                type="text"
+                                                className="themed-input mt-1 w-full"
+                                                value={setting.groups.join(', ')}
+                                                onChange={(event) => updateSingleSetting(setting.id, { groups: parseGroupsInput(event.target.value) })}
+                                            />
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <div className="content-card p-6 space-y-5">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold">Accumulator Bet Slip</h3>
+                                    <p className="text-sm text-secondary">Built from Focused Tips signals and your thresholds.</p>
+                                </div>
+                                <span className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                    {accumulatorSlip.reduce((sum, entry) => sum + entry.total, 0)} picks
+                                </span>
+                            </div>
+                            {accumulatorSlip.length === 0 && (
+                                <p className="text-sm text-secondary">No qualifying entries yet. Adjust thresholds or upload a richer CSV.</p>
+                            )}
+                            <div className="space-y-4">
+                                {accumulatorSlip.map(entry => (
+                                    <div key={entry.setting.id} className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800/70 dark:bg-slate-900/20 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs uppercase tracking-widest text-secondary">{entry.setting.title}</p>
+                                                <p className="text-base font-semibold">{entry.setting.market}</p>
+                                            </div>
+                                            <span className="text-xs font-semibold text-primary">
+                                                {entry.total} match{entry.total === 1 ? '' : 'es'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-secondary">{describeSettingCriteria(entry.setting)}</p>
+                                        <ul className="space-y-2 text-sm">
+                                            {entry.selections.map((selection, index) => (
+                                                <li key={`${entry.setting.id}-${selection.Team}-${selection.Opponent}-${index}`} className="flex items-start justify-between gap-4 rounded-xl bg-slate-50/80 p-3 dark:bg-slate-800/60">
+                                                    <div>
+                                                        <p className="font-semibold text-primary">{selection.Team} vs {selection.Opponent}</p>
+                                                        <p className="text-xs text-secondary">Predicted: {selection.Predicted}</p>
+                                                    </div>
+                                                    <div className="text-right text-xs">
+                                                        <p className="font-semibold text-emerald-600 dark:text-emerald-400">Prob {selection.Prob_Max.toFixed(2)}</p>
+                                                        <p className="text-secondary">λHome {selection.Lambda_Home.toFixed(2)}</p>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        {entry.total > entry.selections.length && (
+                                            <p className="text-[11px] text-secondary italic">
+                                                +{entry.total - entry.selections.length} more match{entry.total - entry.selections.length === 1 ? '' : 'es'} available
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="content-card p-6 space-y-5">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold">Single Bet Slip</h3>
+                                    <p className="text-sm text-secondary">Targeted singles ready to lift straight from the grid.</p>
+                                </div>
+                                <span className="text-xs font-semibold uppercase tracking-widest text-secondary">
+                                    {singleSlip.reduce((sum, entry) => sum + entry.total, 0)} picks
+                                </span>
+                            </div>
+                            {singleSlip.length === 0 && (
+                                <p className="text-sm text-secondary">No single selections just yet.</p>
+                            )}
+                            <div className="space-y-4">
+                                {singleSlip.map(entry => (
+                                    <div key={entry.setting.id} className="rounded-2xl border border-slate-200/70 bg-white/80 p-4 dark:border-slate-800/70 dark:bg-slate-900/20 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs uppercase tracking-widest text-secondary">{entry.setting.title}</p>
+                                                <p className="text-base font-semibold">{entry.setting.market}</p>
+                                            </div>
+                                            <span className="text-xs font-semibold text-primary">
+                                                {entry.total} match{entry.total === 1 ? '' : 'es'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-secondary">{describeSettingCriteria(entry.setting)}</p>
+                                        <ul className="space-y-2 text-sm">
+                                            {entry.selections.map((selection, index) => (
+                                                <li key={`${entry.setting.id}-single-${selection.Team}-${selection.Opponent}-${index}`} className="flex items-start justify-between gap-4 rounded-xl bg-slate-50/80 p-3 dark:bg-slate-800/60">
+                                                    <div>
+                                                        <p className="font-semibold text-primary">{selection.Team} vs {selection.Opponent}</p>
+                                                        <p className="text-xs text-secondary">Predicted: {selection.Predicted}</p>
+                                                    </div>
+                                                    <div className="text-right text-xs">
+                                                        <p className="font-semibold text-emerald-600 dark:text-emerald-400">Prob {selection.Prob_Max.toFixed(2)}</p>
+                                                        <p className="text-secondary">λHome {selection.Lambda_Home.toFixed(2)}</p>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        {entry.total > entry.selections.length && (
+                                            <p className="text-[11px] text-secondary italic">
+                                                +{entry.total - entry.selections.length} more match{entry.total - entry.selections.length === 1 ? '' : 'es'} available
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                         <div className="content-card p-6">
                             <div className="flex items-center justify-between mb-4">
@@ -459,7 +912,8 @@ const TeamMatchupPage: React.FC = () => {
                             <div>
                                 <h3 className="text-lg font-semibold">Filtered Results</h3>
                                 <p className="text-secondary text-sm">
-                                    Displaying {filteredRows.length} of {rows.length} records (Prob_Max ≥ {probFilter.toFixed(2)}, {selectedPrediction === 'All' ? 'All predictions' : `${selectedPrediction} group`}).
+                                    Showing {filteredRows.length ? `${showingFrom}-${showingTo}` : 0} of {filteredRows.length} filtered records
+                                    (Prob_Max ≥ {probFilter.toFixed(2)}, {selectedPrediction === 'All' ? 'All predictions' : `${selectedPrediction} group`}) · {rows.length.toLocaleString()} total rows loaded.
                                 </p>
                             </div>
                         </div>
@@ -467,6 +921,8 @@ const TeamMatchupPage: React.FC = () => {
                             <table className="min-w-full divide-y divide-slate-200/60 dark:divide-slate-700/60 text-sm">
                                 <thead className="bg-gradient-to-r from-teal-500/10 via-sky-500/10 to-indigo-500/10 text-xs font-semibold uppercase tracking-wider">
                                     <tr>
+                                        <th className="px-4 py-3 text-left">Date</th>
+                                        <th className="px-4 py-3 text-left">Div</th>
                                         <th className="px-4 py-3 text-left">Home</th>
                                         <th className="px-4 py-3 text-center">Predicted</th>
                                         <th className="px-4 py-3 text-left">Away</th>
@@ -476,11 +932,17 @@ const TeamMatchupPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
-                                    {filteredRows.map((row, index) => (
+                                    {paginatedRows.map((row, index) => (
                                         <tr
                                             key={`${row.Team}-${row.Opponent}-${index}`}
                                             className="bg-white/70 dark:bg-slate-900/20 hover:bg-teal-50/80 dark:hover:bg-slate-800/70 transition-colors"
                                         >
+                                            <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                                {row.Date || '—'}
+                                            </td>
+                                            <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300">
+                                                {row.Div || '—'}
+                                            </td>
                                             <td className="px-4 py-4 font-semibold text-primary">
                                                 <div className="flex items-center gap-2">
                                                     <span className="inline-flex h-2 w-2 rounded-full bg-teal-400" />
@@ -513,6 +975,32 @@ const TeamMatchupPage: React.FC = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <p className="text-sm text-secondary">
+                                Records per page: {RESULTS_PER_PAGE}
+                            </p>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={goToPreviousPage}
+                                    disabled={resultsPage === 1}
+                                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-secondary transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                                >
+                                    Previous
+                                </button>
+                                <span className="text-sm font-semibold text-secondary">
+                                    Page {filteredRows.length ? resultsPage : 1} / {filteredRows.length ? totalPages : 1}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={goToNextPage}
+                                    disabled={resultsPage >= totalPages || !filteredRows.length}
+                                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-secondary transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                                >
+                                    Next
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </>

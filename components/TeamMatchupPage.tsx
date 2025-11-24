@@ -116,9 +116,15 @@ const scoringTips = [
     },
     {
         score: '0-1',
-        title: 'Under 2.5 focus',
-        details: 'For higher scores, play it safer with Under 2.5 and sprinkle correct score options.',
+        title: 'Team 2 strikes',
+        details: 'Build the plan around Team 2 finding the net once instead of defaulting to an Under 2.5 hedge.',
         gradient: 'from-sky-500 via-cyan-500 to-emerald-400'
+    },
+    {
+        score: '0-2',
+        title: 'Away Pro_Max surge',
+        details: 'High Prob_Max readings scream for the clean Away win—double down on those Team 2 exact-score combos.',
+        gradient: 'from-emerald-600 via-teal-500 to-cyan-400'
     },
     {
         score: '2-0',
